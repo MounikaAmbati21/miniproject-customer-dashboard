@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>
+            Customer Dashboard
+        </title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    </head>
+    <body>
+        <div id="root">
+
+        </div>
+        <script src="../js/react.development.js"></script>
+        <script src="../js/react-dom.development.js"></script>
+        <script src="../js/babel.js"></script>
+        <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+        <script src="lodash.js"></script>
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+        <script type="text/babel">
+        const rootHandle = document.getElementById('root')
+
+        const {useState,useEffect}=React
+
+        //HELPER FUNCTIONS
+        const uniqueCustomers = (customers)=>{
+               const result= _.uniqBy(customers, 'Phone')
+              return result
+            }  
+        const orderTotal=(customers)=>{
+            let sum=0
+            for(const cust of customers){
+                sum += cust.Amount
+            }
+            return sum
+        }
+
+        function StatsItem(props){
+            const {count , text} = props
+            return (
+                <div className="col-md-4">
+                    <div className="card  bg-light  border-info border-4">
+                        <div className="card-header"> <h1> {count} </h1></div>
+                        <div className="card-body">
+                            <div className="card-title"><h3> {text} </h3></div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+
+        function StatsContainer(props){
+            const {customers} = props
+            const ordersCount = customers.length
+
+            return (
+                <div className="row mb-4 mt-2">
+                    <StatsItem count={ordersCount} text="Orders"/>
+                    <StatsItem count={orderTotal(customers)} text="Amount"/>
+                    <StatsItem count={uniqueCustomers(customers).length} text="Customers"/>
+                </div>
+            )
+        }
+
+        function CustomersTable(props){
+            const {customers , showDetails} = props
+
+            return (
+                <table className="table table-striped mb-4">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {
+                            customers.map((customer,i)=>{
+                                return (
+                                    <tr key = {customer.Phone}>
+                                        <td>{i+1}</td>
+                                        <td>{customer.Name}</td>
+                                        <td>{customer.Phone}</td>
+                                        <td><button onClick={()=>{showDetails(customer)}} className="btn btn-info">Show</button></td>
+                                    </tr>
+                                )
+                            })
+                        }
+                    </tbody>
+                </table>
+            )
+        }
+
+        function Search(props){
+            const { term , handleChange} = props
+
+            return (
+            <input type="text" value={term} onChange={handleChange} placeholder="search by name or mobile" class="border border-info border-4 form-control"/>
+            )
+        }
+
+        function CustomersContainer(props){
+            const {customers} = props
+            const [term , setTerm] = useState('')
+            const onlyUniqueCustomers = uniqueCustomers(customers)
+            const showDetails = (customer)=>{
+                const customerOrders = customers.filter( c=> c.Phone===customer.Phone)
+                const customerOrderTotal = orderTotal(customerOrders)
+                
+                alert(`
+                 Name-${customer.Name}
+                 Order Count- ${customerOrders.length}
+                 Order Total-${customerOrderTotal}
+                `) 
+            }
+            
+            const handleChange = (e) =>{
+                const term=e.target.value
+                setTerm(term)
+            }
+
+            const filteredUniqueCustomers = ()=>{
+               const result =  onlyUniqueCustomers.filter(c =>{
+                   return c.Name.toLowerCase().includes(term) || c.Phone.toString().includes(term)
+               })
+               return result
+            }
+            return (
+                <div className="mb-3">
+                <div className="row">
+                    <div className="col-md-8">
+                        <h2> Listing Customers - {onlyUniqueCustomers.length}</h2>
+                    </div>
+                    <div className="col-md-4">
+                        <Search term={term} handleChange={handleChange} />
+                    </div>
+                </div>
+                <div className="row">
+                    <div className="col-md-12">
+                        <CustomersTable customers={filteredUniqueCustomers()} showDetails={showDetails}/>
+                    </div>
+                </div>
+                </div>
+            )
+        }
+    
+        function OrdersTable(props){
+            const {data} = props
+
+            return (
+                <div className="col-md-4">
+                <table className="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>No.Of Orders</th>
+                            <th>Count of Customers</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                            {   
+                                Object.keys(data).map((ele,i)=>{
+                                    return (
+                                        <tr key={i}>
+                                            <td>{ele}</td>
+                                            <td>{ data[ele] }</td>
+                                        </tr>
+                                    )
+                                })
+                            }
+                        </tbody>
+                </table>
+                </div>
+            )
+        }
+
+        function OrdersChart(props){
+            const {data}= props
+            google.charts.load('current', {'packages':['corechart']})
+            google.charts.setOnLoadCallback(drawChart)
+
+            const chartData = [
+                            ['No of Orders', 'Customer Count']
+                        ]
+                for(const key in data){
+                    chartData.push([key , data[key]])
+                }
+            function drawChart() {
+                const data = google.visualization.arrayToDataTable(chartData)
+
+                const options = {
+                    title: 'Order Distribution'
+                  }
+
+                const chart = new google.visualization.PieChart(document.getElementById('piechart'))
+
+                chart.draw(data, options)
+            }
+            return (
+                <div className="col-md-6">
+                    <div id="piechart" style={{width: '600px', height: '400px'}}></div>
+                </div>
+            )
+        }
+
+        function OrdersContainer(props){
+            const {customers} = props
+
+            const customerFrequency = ()=>{
+                const customersData = uniqueCustomers(customers)
+                const frequencyObj = { 1:0 , 2:0 , 3:0 , 4:0 ,'5+':0}
+                customers.forEach((customer)=>{
+                    const customerOrders = customers.filter((c)=>{
+                        return c.Phone === customer.Phone
+                    })
+                    if(customerOrders.length >=5){
+                        frequencyObj['5+']++
+                    }else{
+                        frequencyObj[customerOrders.length]++
+                    }
+                })
+                //console.log(frequencyObj)
+                return frequencyObj
+            }
+            
+
+            return (
+                <div className="row">
+                    <div className="col-md-12">
+                        <h2>Orders Distribution</h2>
+                    </div>
+
+                    <OrdersTable data={customerFrequency()} />
+                    <OrdersChart data={customerFrequency()}/>
+                </div>
+            )
+        }
+
+        function App(props){
+            const [customers , setCustomers] = useState([])
+
+            useEffect(()=>{
+                axios.get("./customer-data.json")
+                .then((response)=>{
+                    const result=response.data
+                    setCustomers(result)
+                    //console.log(result)
+                })
+            },[])
+
+            return (
+                <div className="container">
+                    <h1 className="display-4 mb-4">Customer Dashboard</h1>
+                    <StatsContainer customers={customers} />
+                    <CustomersContainer customers={customers} />
+                    <OrdersContainer customers={customers} />
+                </div>
+            )
+        }
+        ReactDOM.render(<App/>,rootHandle)
+        </script>
+    </body>
+</html>
